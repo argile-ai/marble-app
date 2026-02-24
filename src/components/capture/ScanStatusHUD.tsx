@@ -29,17 +29,32 @@ export function ScanStatusHUD({ scanState }: ScanStatusHUDProps) {
             h="8px"
             borderRadius="full"
             bg={
-              isScanning ? "green.400" : isConnected ? "yellow.400" : "red.400"
+              isScanning && isConnected
+                ? "green.400"
+                : isScanning
+                  ? "yellow.400"
+                  : isConnected
+                    ? "green.400"
+                    : "red.400"
             }
           />
           <Text fontSize="xs" color="whiteAlpha.800">
-            {isScanning
-              ? "Scanning..."
-              : isConnected
-                ? "Connected"
-                : "Disconnected"}
+            {isScanning && isConnected
+              ? "Scanning"
+              : isScanning
+                ? "Scanning (connecting...)"
+                : isConnected
+                  ? "Connected"
+                  : "Offline"}
           </Text>
         </Flex>
+
+        {/* Error */}
+        {scanState.error && (
+          <Text fontSize="xs" color="orange.300">
+            {scanState.error}
+          </Text>
+        )}
 
         {/* Stats */}
         <Flex gap={4}>

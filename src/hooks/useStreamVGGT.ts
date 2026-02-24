@@ -1,8 +1,8 @@
 import { useRef, useState, useCallback } from "react";
 import type { ReconstructionFrame, ScanState } from "../types";
 
-const WS_URL = import.meta.env.VITE_STREAMVGGT_WS_URL ?? "ws://localhost:8000/ws";
-const KEYFRAME_INTERVAL_MS = 1500; // Send a frame every 1.5s
+const WS_URL = import.meta.env.VITE_STREAMVGGT_WS_URL ?? "";
+const KEYFRAME_INTERVAL_MS = 1500;
 
 function parseServerResponse(data: Record<string, unknown>): ReconstructionFrame | null {
   if (data.error) {
@@ -47,64 +47,73 @@ export function useStreamVGGT() {
 
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    if (!WS_URL) {
+      console.warn("No VITE_STREAMVGGT_WS_URL configured, running in offline mode");
+      return;
+    }
 
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
+    try {
+      const ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
 
-    ws.onopen = () => {
-      setScanState((prev) => ({ ...prev, isConnected: true, error: null }));
-    };
+      ws.onopen = () => {
+        console.log("WebSocket connected");
+        setScanState((prev) => ({ ...prev, isConnected: true, error: null }));
+      };
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const frame = parseServerResponse(data);
-        if (!frame) return;
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          const frame = parseServerResponse(data);
+          if (!frame) return;
 
-        setScanState((prev) => {
-          // Accumulate points from all frames
-          const newPoints = new Float32Array(
-            prev.accumulatedPoints.length + frame.points.length
-          );
-          newPoints.set(prev.accumulatedPoints);
-          newPoints.set(frame.points, prev.accumulatedPoints.length);
+          setScanState((prev) => {
+            const newPoints = new Float32Array(
+              prev.accumulatedPoints.length + frame.points.length
+            );
+            newPoints.set(prev.accumulatedPoints);
+            newPoints.set(frame.points, prev.accumulatedPoints.length);
 
-          const newColors = new Float32Array(
-            prev.accumulatedColors.length + frame.colors.length
-          );
-          newColors.set(prev.accumulatedColors);
-          newColors.set(frame.colors, prev.accumulatedColors.length);
+            const newColors = new Float32Array(
+              prev.accumulatedColors.length + frame.colors.length
+            );
+            newColors.set(prev.accumulatedColors);
+            newColors.set(frame.colors, prev.accumulatedColors.length);
 
-          return {
-            ...prev,
-            latestFrame: frame,
-            accumulatedPoints: newPoints,
-            accumulatedColors: newColors,
-          };
-        });
-      } catch (err) {
-        console.error("Failed to parse WS message:", err);
-      }
-    };
+            return {
+              ...prev,
+              latestFrame: frame,
+              accumulatedPoints: newPoints,
+              accumulatedColors: newColors,
+            };
+          });
+        } catch (err) {
+          console.error("Failed to parse WS message:", err);
+        }
+      };
 
-    ws.onclose = () => {
-      setScanState((prev) => ({ ...prev, isConnected: false }));
-    };
+      ws.onclose = () => {
+        console.log("WebSocket disconnected");
+        setScanState((prev) => ({ ...prev, isConnected: false }));
+      };
 
-    ws.onerror = () => {
-      setScanState((prev) => ({
-        ...prev,
-        isConnected: false,
-        error: "WebSocket connection failed",
-      }));
-    };
+      ws.onerror = (e) => {
+        console.error("WebSocket error:", e);
+        setScanState((prev) => ({
+          ...prev,
+          isConnected: false,
+          error: "Connection failed — server may be starting up",
+        }));
+      };
+    } catch (e) {
+      console.error("Failed to create WebSocket:", e);
+    }
   }, []);
 
   const sendFrame = useCallback((base64Jpeg: string) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
-    // Strip data URL prefix if present
     const b64 = base64Jpeg.replace(/^data:image\/\w+;base64,/, "");
     ws.send(JSON.stringify({ image: b64 }));
 
@@ -117,22 +126,18 @@ export function useStreamVGGT() {
   const startScanning = useCallback(
     (captureFunction: () => string | null) => {
       captureRef.current = captureFunction;
+
+      // Immediately start scanning UI and frame capture
+      setScanState((prev) => ({ ...prev, isScanning: true, error: null }));
+
+      // Try to connect WebSocket in background
       connect();
 
-      // Wait for connection before starting to capture
-      const checkAndStart = () => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          intervalRef.current = setInterval(() => {
-            const dataUrl = captureRef.current?.();
-            if (dataUrl) sendFrame(dataUrl);
-          }, KEYFRAME_INTERVAL_MS);
-
-          setScanState((prev) => ({ ...prev, isScanning: true }));
-        } else {
-          setTimeout(checkAndStart, 200);
-        }
-      };
-      checkAndStart();
+      // Start capturing frames immediately — sends when WS is open, skips when not
+      intervalRef.current = setInterval(() => {
+        const dataUrl = captureRef.current?.();
+        if (dataUrl) sendFrame(dataUrl);
+      }, KEYFRAME_INTERVAL_MS);
     },
     [connect, sendFrame]
   );
