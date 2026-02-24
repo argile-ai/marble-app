@@ -14,15 +14,11 @@ export function ScanStatusHUD({ scanState }: ScanStatusHUDProps) {
 
   return (
     <Box
-      position="absolute"
-      bottom={20}
-      left="50%"
-      transform="translateX(-50%)"
-      bg="blackAlpha.700"
+      bg="whiteAlpha.100"
       borderRadius="xl"
       px={4}
       py={2}
-      zIndex={10}
+      mx="auto"
       minW="200px"
     >
       <Flex direction="column" gap={1} align="center">

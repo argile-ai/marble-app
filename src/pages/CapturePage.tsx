@@ -141,10 +141,10 @@ export function CapturePage() {
         </Box>
 
         {/* Bottom controls */}
-        <Box bg="black" px={4} py={4} pb={6}>
+        <Flex direction="column" gap={3} bg="black" px={4} pt={3} pb={8} align="center">
           <ScanStatusHUD scanState={scanState} />
 
-          <Flex gap={3} mt={3} justify="center">
+          <Flex gap={3} justify="center">
             {!isScanning ? (
               <Button
                 colorPalette="green"
@@ -179,7 +179,7 @@ export function CapturePage() {
               </Button>
             )}
           </Flex>
-        </Box>
+        </Flex>
       </Flex>
     </MobileContainer>
   );
