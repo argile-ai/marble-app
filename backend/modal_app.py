@@ -31,6 +31,7 @@ streamvggt_image = (
         "fastapi",
         "uvicorn",
         "websockets",
+        "transformers",
     )
     # Clone the StreamVGGT repository into /root/StreamVGGT
     .run_commands("git clone https://github.com/wzzheng/StreamVGGT.git /root/StreamVGGT")
@@ -62,10 +63,9 @@ PATCH_SIZE = 14  # Dimensions must be divisible by this
 # StreamVGGT Service
 # ---------------------------------------------------------------------------
 @app.cls(
-    gpu=modal.gpu.A100(size="80GB"),
+    gpu="A10G",
     timeout=600,
-    container_idle_timeout=300,
-    allow_concurrent_inputs=1,
+    scaledown_window=300,
 )
 class StreamVGGTService:
     """
@@ -228,7 +228,7 @@ class StreamVGGTService:
     # ------------------------------------------------------------------
     # WebSocket endpoint for streaming
     # ------------------------------------------------------------------
-    @modal.web_endpoint(method="GET", docs=True)
+    @modal.fastapi_endpoint(method="GET", docs=True)
     def health(self):
         """Health check endpoint."""
         return {
@@ -238,7 +238,7 @@ class StreamVGGTService:
             "target_points": TARGET_POINTS,
         }
 
-    @modal.web_endpoint(method="POST", docs=True)
+    @modal.fastapi_endpoint(method="POST", docs=True)
     def process_frame(self, request: dict):
         """
         Process a single frame via POST request.
