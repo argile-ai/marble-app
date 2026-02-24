@@ -9,12 +9,16 @@ import { ScanStatusHUD } from "../components/capture/ScanStatusHUD";
 import { IconButton } from "../components/ui/IconButton";
 import { useCamera } from "../hooks/useCamera";
 import { useStreamVGGT } from "../hooks/useStreamVGGT";
+import { useScanStore } from "../stores/scanStore";
+import { useAssets } from "../stores/assetStore";
 
 export function CapturePage() {
   const navigate = useNavigate();
   const { webcamRef, capture } = useCamera();
   const { scanState, startScanning, stopScanning, reset, disconnect } =
     useStreamVGGT();
+  const { setScanData } = useScanStore();
+  const { dispatch } = useAssets();
 
   const handleStartScan = useCallback(() => {
     startScanning(capture);
@@ -26,8 +30,29 @@ export function CapturePage() {
 
   const handleFinish = () => {
     stopScanning();
-    // Navigate to generating page (which will eventually use the accumulated data)
-    navigate("/generating");
+
+    // Save the accumulated point cloud for the viewer
+    const { accumulatedPoints, accumulatedColors } = scanState;
+    setScanData({
+      points: accumulatedPoints,
+      colors: accumulatedColors,
+    });
+
+    // Create an asset entry
+    const newId = crypto.randomUUID();
+    dispatch({
+      type: "ADD_ASSET",
+      payload: {
+        id: newId,
+        title: "Scan " + new Date().toLocaleTimeString(),
+        status: "complete",
+        thumbnailUrl: "/assets/scene-thumbnail.jpg",
+        createdAt: new Date(),
+      },
+    });
+
+    // Go directly to viewer
+    navigate(`/viewer/${newId}`);
   };
 
   const handleClose = () => {
