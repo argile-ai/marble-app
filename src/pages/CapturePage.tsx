@@ -52,7 +52,7 @@ export function CapturePage() {
 
   return (
     <MobileContainer bg="black">
-      <Box position="relative" h="dvh" overflow="hidden">
+      <Box position="relative" h="100svh" overflow="hidden">
         {/* Full-screen camera feed */}
         <Box position="absolute" inset={0}>
           <CameraViewfinder webcamRef={webcamRef} />
@@ -139,22 +139,24 @@ export function CapturePage() {
           </Box>
         )}
 
-        {/* Bottom controls - fixed at bottom */}
+        {/* Bottom controls - fixed to viewport bottom */}
         <Flex
           direction="column"
           gap={3}
-          position="absolute"
+          position="fixed"
           bottom={0}
           left={0}
           right={0}
+          maxW="md"
+          mx="auto"
           px={4}
           pt={4}
           pb="max(env(safe-area-inset-bottom), 24px)"
           align="center"
           zIndex={20}
-          bgGradient="to-t"
-          gradientFrom="blackAlpha.800"
-          gradientTo="transparent"
+          style={{
+            background: "linear-gradient(to top, rgba(0,0,0,0.85) 60%, transparent)",
+          }}
         >
           <ScanStatusHUD scanState={scanState} />
 
