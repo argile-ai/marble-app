@@ -52,7 +52,22 @@ export function CapturePage() {
 
   return (
     <MobileContainer bg="black">
-      <Flex direction="column" h="dvh">
+      <Box position="relative" h="dvh" overflow="hidden">
+        {/* Full-screen camera feed */}
+        <Box position="absolute" inset={0}>
+          <CameraViewfinder webcamRef={webcamRef} />
+        </Box>
+
+        {/* Point cloud overlaid on camera */}
+        {hasPoints && (
+          <PointCloudOverlay
+            points={accumulatedPoints}
+            colors={accumulatedColors}
+            cameraPose={latestCameraPose}
+            extrinsic={latestExtrinsic}
+          />
+        )}
+
         {/* Top bar */}
         <Flex
           justify="space-between"
@@ -77,71 +92,70 @@ export function CapturePage() {
           />
         </Flex>
 
-        {/* Camera feed + point cloud overlay */}
-        <Box flex={1} position="relative">
-          <CameraViewfinder webcamRef={webcamRef} />
+        {/* Scan instructions (center) */}
+        {!isScanning && !hasPoints && (
+          <Flex
+            position="absolute"
+            top="40%"
+            left="50%"
+            transform="translate(-50%, -50%)"
+            direction="column"
+            align="center"
+            gap={2}
+            zIndex={10}
+          >
+            <ScanLine size={48} color="white" opacity={0.7} />
+            <Text color="whiteAlpha.800" fontSize="sm" textAlign="center">
+              Tap Start to begin scanning.{"\n"}Move your phone slowly around
+              the room.
+            </Text>
+          </Flex>
+        )}
 
-          {/* Point cloud overlaid on camera */}
-          {hasPoints && (
-            <PointCloudOverlay
-              points={accumulatedPoints}
-              colors={accumulatedColors}
-              cameraPose={latestCameraPose}
-              extrinsic={latestExtrinsic}
-            />
-          )}
-
-          {/* Scan instructions */}
-          {!isScanning && !hasPoints && (
-            <Flex
-              position="absolute"
-              top="50%"
-              left="50%"
-              transform="translate(-50%, -50%)"
-              direction="column"
-              align="center"
-              gap={2}
-              zIndex={10}
-            >
-              <ScanLine size={48} color="white" opacity={0.7} />
-              <Text color="whiteAlpha.800" fontSize="sm" textAlign="center">
-                Tap Start to begin scanning.{"\n"}Move your phone slowly around
-                the room.
+        {/* Scanning indicator (top center) */}
+        {isScanning && (
+          <Box
+            position="absolute"
+            top={14}
+            left="50%"
+            transform="translateX(-50%)"
+            bg="green.500"
+            px={3}
+            py={1}
+            borderRadius="full"
+            zIndex={10}
+          >
+            <Flex align="center" gap={2}>
+              <Box
+                w="6px"
+                h="6px"
+                borderRadius="full"
+                bg="white"
+              />
+              <Text fontSize="xs" color="white" fontWeight="semibold">
+                SCANNING
               </Text>
             </Flex>
-          )}
+          </Box>
+        )}
 
-          {/* Scanning indicator */}
-          {isScanning && (
-            <Box
-              position="absolute"
-              top={14}
-              left="50%"
-              transform="translateX(-50%)"
-              bg="green.500"
-              px={3}
-              py={1}
-              borderRadius="full"
-              zIndex={10}
-            >
-              <Flex align="center" gap={2}>
-                <Box
-                  w="6px"
-                  h="6px"
-                  borderRadius="full"
-                  bg="white"
-                  animation="pulse 1.5s infinite"
-                />
-                <Text fontSize="xs" color="white" fontWeight="semibold">
-                  SCANNING
-                </Text>
-              </Flex>
-            </Box>
-          )}
-        </Box>
-
-        {/* Bottom controls */}
-        <Flex direction="column" gap={3} bg="black" px={4} pt={3} pb={8} align="center">
+        {/* Bottom controls - fixed at bottom */}
+        <Flex
+          direction="column"
+          gap={3}
+          position="absolute"
+          bottom={0}
+          left={0}
+          right={0}
+          px={4}
+          pt={4}
+          pb="max(env(safe-area-inset-bottom), 24px)"
+          align="center"
+          zIndex={20}
+          bgGradient="to-t"
+          gradientFrom="blackAlpha.800"
+          gradientTo="transparent"
+        >
           <ScanStatusHUD scanState={scanState} />
 
           <Flex gap={3} justify="center">
@@ -180,7 +194,7 @@ export function CapturePage() {
             )}
           </Flex>
         </Flex>
-      </Flex>
+      </Box>
     </MobileContainer>
   );
 }
