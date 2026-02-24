@@ -1,0 +1,15 @@
+modal
+torch==2.3.1
+torchvision==0.18.1
+numpy==1.26.1
+Pillow==10.3.0
+huggingface_hub
+safetensors
+roma
+einops
+opencv-python
+scipy
+trimesh
+fastapi
+uvicorn
+websockets

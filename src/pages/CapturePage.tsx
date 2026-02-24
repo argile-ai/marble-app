@@ -1,32 +1,54 @@
-import { Box, Flex } from "@chakra-ui/react";
+import { useEffect, useCallback } from "react";
+import { Box, Flex, Button, Text } from "@chakra-ui/react";
 import { useNavigate } from "react-router-dom";
-import { Undo2, X } from "lucide-react";
+import { X, RotateCcw, ScanLine } from "lucide-react";
 import { MobileContainer } from "../components/layout/MobileContainer";
 import { CameraViewfinder } from "../components/capture/CameraViewfinder";
-import { TargetDots } from "../components/capture/TargetDots";
-import { CaptureProgress } from "../components/capture/CaptureProgress";
-import { CaptureControls } from "../components/capture/CaptureControls";
+import { PointCloudOverlay } from "../components/capture/PointCloudOverlay";
+import { ScanStatusHUD } from "../components/capture/ScanStatusHUD";
 import { IconButton } from "../components/ui/IconButton";
 import { useCamera } from "../hooks/useCamera";
-import { usePhotoSession } from "../hooks/usePhotoSession";
+import { useStreamVGGT } from "../hooks/useStreamVGGT";
 
 export function CapturePage() {
   const navigate = useNavigate();
   const { webcamRef, capture } = useCamera();
-  const { progress, total, isComplete, addPhoto, undo } = usePhotoSession();
+  const { scanState, startScanning, stopScanning, reset, disconnect } =
+    useStreamVGGT();
 
-  const handleCapture = () => {
-    const dataUrl = capture();
-    if (dataUrl) addPhoto(dataUrl);
-  };
+  const handleStartScan = useCallback(() => {
+    startScanning(capture);
+  }, [startScanning, capture]);
+
+  const handleStopScan = useCallback(() => {
+    stopScanning();
+  }, [stopScanning]);
 
   const handleFinish = () => {
+    stopScanning();
+    // Navigate to generating page (which will eventually use the accumulated data)
     navigate("/generating");
   };
 
   const handleClose = () => {
+    disconnect();
     navigate("/profile");
   };
+
+  const handleReset = () => {
+    reset();
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => disconnect();
+  }, [disconnect]);
+
+  const { isScanning, framesSent, accumulatedPoints, accumulatedColors } =
+    scanState;
+  const hasPoints = accumulatedPoints.length > 0;
+  const latestExtrinsic = scanState.latestFrame?.extrinsic ?? null;
+  const latestCameraPose = scanState.latestFrame?.cameraPose ?? null;
 
   return (
     <MobileContainer bg="black">
@@ -41,12 +63,12 @@ export function CapturePage() {
           top={0}
           left={0}
           right={0}
-          zIndex={10}
+          zIndex={20}
         >
           <IconButton
-            icon={<Undo2 size={20} />}
-            label="Undo"
-            onClick={undo}
+            icon={<RotateCcw size={20} />}
+            label="Reset scan"
+            onClick={handleReset}
           />
           <IconButton
             icon={<X size={20} color="#ef4444" />}
@@ -55,22 +77,108 @@ export function CapturePage() {
           />
         </Flex>
 
-        {/* Camera */}
+        {/* Camera feed + point cloud overlay */}
         <Box flex={1} position="relative">
           <CameraViewfinder webcamRef={webcamRef} />
-          <TargetDots capturedCount={progress} />
+
+          {/* Point cloud overlaid on camera */}
+          {hasPoints && (
+            <PointCloudOverlay
+              points={accumulatedPoints}
+              colors={accumulatedColors}
+              cameraPose={latestCameraPose}
+              extrinsic={latestExtrinsic}
+            />
+          )}
+
+          {/* Scan instructions */}
+          {!isScanning && !hasPoints && (
+            <Flex
+              position="absolute"
+              top="50%"
+              left="50%"
+              transform="translate(-50%, -50%)"
+              direction="column"
+              align="center"
+              gap={2}
+              zIndex={10}
+            >
+              <ScanLine size={48} color="white" opacity={0.7} />
+              <Text color="whiteAlpha.800" fontSize="sm" textAlign="center">
+                Tap Start to begin scanning.{"\n"}Move your phone slowly around
+                the room.
+              </Text>
+            </Flex>
+          )}
+
+          {/* Scanning indicator */}
+          {isScanning && (
+            <Box
+              position="absolute"
+              top={14}
+              left="50%"
+              transform="translateX(-50%)"
+              bg="green.500"
+              px={3}
+              py={1}
+              borderRadius="full"
+              zIndex={10}
+            >
+              <Flex align="center" gap={2}>
+                <Box
+                  w="6px"
+                  h="6px"
+                  borderRadius="full"
+                  bg="white"
+                  animation="pulse 1.5s infinite"
+                />
+                <Text fontSize="xs" color="white" fontWeight="semibold">
+                  SCANNING
+                </Text>
+              </Flex>
+            </Box>
+          )}
         </Box>
 
         {/* Bottom controls */}
-        <Box bg="black">
-          <CaptureProgress progress={progress} total={total} />
-          <CaptureControls
-            onCapture={handleCapture}
-            onFinish={handleFinish}
-            isComplete={isComplete}
-            canUndo={progress > 0}
-            onUndo={undo}
-          />
+        <Box bg="black" px={4} py={4} pb={6}>
+          <ScanStatusHUD scanState={scanState} />
+
+          <Flex gap={3} mt={3} justify="center">
+            {!isScanning ? (
+              <Button
+                colorPalette="green"
+                size="lg"
+                borderRadius="full"
+                px={8}
+                onClick={handleStartScan}
+              >
+                {framesSent > 0 ? "Resume" : "Start Scan"}
+              </Button>
+            ) : (
+              <Button
+                colorPalette="yellow"
+                size="lg"
+                borderRadius="full"
+                px={8}
+                onClick={handleStopScan}
+              >
+                Pause
+              </Button>
+            )}
+
+            {framesSent > 0 && !isScanning && (
+              <Button
+                colorPalette="blue"
+                size="lg"
+                borderRadius="full"
+                px={8}
+                onClick={handleFinish}
+              >
+                Done
+              </Button>
+            )}
+          </Flex>
         </Box>
       </Flex>
     </MobileContainer>
