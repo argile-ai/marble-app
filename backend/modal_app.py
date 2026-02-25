@@ -45,6 +45,7 @@ streamvggt_image = (
         "websockets",
         "transformers",
     )
+    .pip_install("modal>=1.3")
     .run_commands(f"git clone {STREAMVGGT_REPO} {STREAMVGGT_DIR}")
     .run_commands(
         'python -c "'
