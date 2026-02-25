@@ -78,12 +78,19 @@ export function CapturePage() {
   return (
     <MobileContainer bg="black">
       <Box position="relative" h="100svh" overflow="hidden">
-        {/* Full-screen camera feed */}
-        <Box position="absolute" inset={0}>
+        {/* Camera feed: full-screen when no points, top half when points exist */}
+        <Box
+          position="absolute"
+          top={0}
+          left={0}
+          right={0}
+          h={hasPoints ? "50%" : "100%"}
+          transition="height 0.3s ease"
+        >
           <CameraViewfinder webcamRef={webcamRef} />
         </Box>
 
-        {/* Point cloud overlaid on camera */}
+        {/* 3D reconstruction preview: bottom half */}
         {hasPoints && (
           <PointCloudOverlay
             points={accumulatedPoints}

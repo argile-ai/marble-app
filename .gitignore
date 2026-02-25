@@ -23,3 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 .vercel
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+
+# Generated artifacts
+backend/clery4_floorplan.svg
