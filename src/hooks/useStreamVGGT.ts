@@ -45,6 +45,10 @@ export function useStreamVGGT() {
     error: null,
   });
 
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const maxRetries = 10;
+
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
     if (!WS_URL) {
@@ -58,6 +62,7 @@ export function useStreamVGGT() {
 
       ws.onopen = () => {
         console.log("WebSocket connected");
+        retryCountRef.current = 0;
         setScanState((prev) => ({ ...prev, isConnected: true, error: null }));
       };
 
@@ -97,13 +102,26 @@ export function useStreamVGGT() {
         setScanState((prev) => ({ ...prev, isConnected: false }));
       };
 
-      ws.onerror = (e) => {
-        console.error("WebSocket error:", e);
-        setScanState((prev) => ({
-          ...prev,
-          isConnected: false,
-          error: "Connection failed — server may be starting up",
-        }));
+      ws.onerror = () => {
+        wsRef.current = null;
+        const attempt = retryCountRef.current;
+        if (attempt < maxRetries) {
+          const delay = Math.min(2000 * 2 ** attempt, 30000);
+          retryCountRef.current = attempt + 1;
+          console.log(`WebSocket failed, retrying in ${delay / 1000}s (attempt ${attempt + 1}/${maxRetries})`);
+          setScanState((prev) => ({
+            ...prev,
+            isConnected: false,
+            error: `Connecting to server… (attempt ${attempt + 1}/${maxRetries})`,
+          }));
+          retryTimerRef.current = setTimeout(() => connect(), delay);
+        } else {
+          setScanState((prev) => ({
+            ...prev,
+            isConnected: false,
+            error: "Could not connect to server. Try again later.",
+          }));
+        }
       };
     } catch (e) {
       console.error("Failed to create WebSocket:", e);
@@ -171,6 +189,11 @@ export function useStreamVGGT() {
 
   const disconnect = useCallback(() => {
     stopScanning();
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    retryCountRef.current = 0;
     wsRef.current?.close();
     wsRef.current = null;
   }, [stopScanning]);
